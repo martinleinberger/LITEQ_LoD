@@ -21,10 +21,12 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
         let mutable niceName : Uri -> string = id
         let mutable prefixOf : Uri -> string = fun _ -> "unknownPrefix"
 
+        let intension_cache : ICache<ProvidedTypeDefinition> = createInMemoryCache()
+
         // This stuff is needed as we want to add things as possible starting points once they have been explored
         let container = new ProvidedTypeDefinition("NPQL", None)
         
-        let findPropertiesForType : Type -> (Property * TypeCluster list) list = memoize(fun (``type``) -> 
+        let findPropertiesForType (``type``:Type) : (Property * TypeCluster list) list = 
             // Access those type clusters that contain the type
             this.schema.GetTypeClustersFor ``type``
             // Map these type clusters to equivalence clusters and flatten the list
@@ -51,10 +53,10 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             |> List.map(fun (property,typeClusters) ->
                 property, (typeClusters |> Set.ofList |> Set.toList)
             )
-        )
 
         // Building the intension is not yet fully implemented right now
         let rec makeIntension = fun restrictions typeName ->
+            
             let predefinedProperties =
                 restrictions
                 |> Seq.toList
