@@ -1,4 +1,8 @@
-﻿module Schema
+﻿
+
+module Schema
+
+open FSharp.Data
 
 type Uri = string
 type Property = Uri
@@ -47,6 +51,11 @@ let subject (s,_,_)    = s
 let predicate (_,p,_)  = p
 let ``object`` (_,_,o) = o
 
+let trimUri (x:string) :string = x.Remove(0,1).Remove(x.LastIndexOf(">")-1 ,1)
+let trimUris (x:seq<string>) :seq<string> = x |> Seq.map (fun x -> trimUri x)
+let escapeUri (x:string) :string = System.Uri.EscapeDataString x
+let escapeUris (x:seq<string>) :seq<string> = x |> Seq.map (fun x -> escapeUri x)
+
 type SchemaProvider = 
     abstract member AllRdfTypes : Type list
     abstract member GetAllTypesIn : TypeCluster -> Type list
@@ -61,6 +70,35 @@ type SchemaProvider =
 
 type StartingPointProvider = 
     abstract member Get : unit -> Type list
+
+type HTTPSchema() =
+    interface SchemaProvider with
+        member __.AllRdfTypes = 
+            db
+            |> List.filter(fun (s,p,o) -> p = "containsClass")
+            |> List.map ``object``
+            
+        member __.GetAllTypesIn typecluster =
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=types&uri=" + escapeUri typecluster
+            [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())];
+
+        member __.GetTypeClustersFor ``type`` =
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tcs&uri=" + escapeUri ``type``
+            [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())];
+
+        member __.GetAllEQCIn typecluster =
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=eqc&uri=" + escapeUri typecluster
+            [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())];
+
+        member __.GetPropertiesAndTypeClusterIn equivalenceClass =
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=mappings&uri=" + escapeUri equivalenceClass
+            Array.toList (JsonValue.Load(uri).["response"].AsArray()) |> List.map (fun x -> 
+                Array.toList(x.[1].AsArray()) |> List.map (fun x -> trimUri(x.AsString())),
+                Array.toList(x.[0].AsArray())|> List.map (fun x -> trimUri(x.AsString())))
+             
+        member __.GetAllInstancesIn equivalenceClass =
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=entities&uri=" + escapeUri equivalenceClass
+            [for item in JsonValue.Load(uri) -> trimUri(item.AsString())];
 
 type DummySchema() = 
     interface SchemaProvider with
