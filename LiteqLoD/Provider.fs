@@ -5,7 +5,8 @@ open ProviderImplementation.ProvidedTypes
 open System.Reflection
 
 open Schema
-
+open Utils
+open NoGoodNameYetLayer
 
 
 
@@ -19,11 +20,14 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
         
         [<DefaultValue>] val mutable private schema : SchemaProvider
         [<DefaultValue>] val mutable private startingPoint : StartingPointProvider 
-        [<DefaultValue>] val mutable private niceName : string -> string
+        let mutable niceName : Uri -> string = id
+        let mutable prefixOf : Uri -> string = fun _ -> "unknownPrefix"
+
+        let intension_cache : ICache<ProvidedTypeDefinition> = createInMemoryCache()
 
         // This stuff is needed as we want to add things as possible starting points once they have been explored
         let container = new ProvidedTypeDefinition("NPQL", None)
-
+        
         let findPropertiesForType (``type``:Type) : (Property * TypeCluster list) list = 
             // Access those type clusters that contain the type
             this.schema.GetTypeClustersFor ``type``
@@ -51,67 +55,116 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             |> List.map(fun (property,typeClusters) ->
                 property, (typeClusters |> Set.ofList |> Set.toList)
             )
-        
-        // Building the intension is not yet fully implemented right now
-        let rec makeIntension = fun _ ->
-            ProvidedTypeDefinition(className="Intension", baseType=Some typeof<obj>)
 
-        and makePropertyNavigation = fun ``type`` ->
+        // Building the intension is not yet fully implemented right now
+        let rec makeIntension = fun restrictions typeName ->
+            
+            let predefinedProperties =
+                restrictions
+                |> Seq.toList
+                |> List.rev
+                |> List.tail
+                |> Seq.pairwise
+                |> Seq.toList
+                |> List.map(fun ((_,propertyName,_),(_,_,typeName)) ->
+                    let t = ProvidedTypeDefinition(className=typeName, baseType=Some typeof<obj>)
+                    t.AddMembersDelayed (fun _ ->
+                        findPropertiesForType typeName
+                        |> Seq.map(fun (p,tc) -> ProvidedProperty(propertyName=p, propertyType=typeof<string>,
+                                                    GetterCode = fun args -> <@@ "" @@>))
+                        |> Seq.toList
+                    )
+                    let p = ProvidedProperty(propertyName=propertyName, propertyType=t, GetterCode=fun args -> <@@ new obj() @@>)
+                    (t,p)
+                )
+            let allProperties =
+                findPropertiesForType typeName 
+                |> Seq.filter(fun (p,tc) -> restrictions |> Seq.exists(fun (s,p',o) -> p' = p) |> not) 
+                |> Seq.map(fun (p,tc) -> ProvidedProperty(propertyName=p, propertyType=typeof<string>, GetterCode = fun args -> <@@ "" @@>))
+                |> Seq.toList
+            let t = ProvidedTypeDefinition(className="Intension", baseType=Some typeof<obj>)
+            t.AddMembers allProperties
+            predefinedProperties
+            |> Seq.iter(fun (t',p) ->
+                t.AddMember t'
+                t.AddMember p
+            )
+
+            t
+
+        and makePropertyNavigation = fun freeVariable restrictions ``type`` ->
             findPropertiesForType ``type``
             |> List.map(fun (property,typeClusters) -> 
-                let t = ProvidedTypeDefinition("-"+(this.niceName property)+"->", None)
+                let t = ProvidedTypeDefinition("-"+(niceName property)+"->", None)
                 t.AddMembersDelayed (fun _ ->
                     typeClusters
-                    |> List.map makeTypesOutOfCluster
+                    |> List.map (this.schema.GetAllTypesIn)
                     |> List.concat
+                    |> Set.ofList
+                    |> Set.toList
+                    |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName)
+
+                    
+                    //|> List.map (makeTypesOutOfCluster freeVariable restrictions)
+                    //|> List.concat
                 )
                 t
             )
 
-        and makePropertyRestriction = fun ``type`` ->
+        and makePropertyRestriction = fun freeVariable restrictions ``type`` ->
             findPropertiesForType ``type``
             |> List.map(fun (property, typeClusters) ->
-                let t = ProvidedTypeDefinition("<-"+(this.niceName property)+"-", None)
+                let t = ProvidedTypeDefinition("<-"+(niceName property)+"-", None)
+
                 t.AddMembersDelayed (fun _ ->
+//                    typeClusters
+//                    // TODO: Really no need to remove duplicate types?
+//                    |> List.map (makeTypesOutOfCluster freeVariable restrictions)
+//                    |> List.concat
+                    let restrictions' = ("?x", property, freeVariable) :: restrictions
+
                     typeClusters
-                    |> List.map makeTypesOutOfCluster
+                    |> List.map (this.schema.GetAllTypesIn)
                     |> List.concat
+                    |> Set.ofList
+                    |> Set.toList
+                    |> List.map (fun typeName -> makeType (freeVariable+"y") ((freeVariable, "a", typeName) :: restrictions') ``type`` typeName)
+
                 )
                 t
             )
 
-        and makeTypesOutOfCluster = fun typeCluster ->
-            let types = this.schema.GetAllTypesIn typeCluster
-            types |> Seq.iter addToContainer
-            types |> List.map makeType
-
-        and makeType = fun typeName ->
-            let t = ProvidedTypeDefinition(className = (this.niceName typeName), baseType=None)
+        and makeType = fun freeVariable restrictions typeForPropertyRestriction typeName ->
+            let t = ProvidedTypeDefinition(className = (niceName typeName), baseType=None)
             // Add Intension and Extension
             t.AddMembersDelayed (fun _ ->
-                let intension = makeIntension ()
+                let tmp = restrictions |> List.map(fun (s, p, o) -> s+", "+p+", "+o) |> String.concat " . \n"
+                let intension = makeIntension restrictions typeForPropertyRestriction 
                 let extension = ProvidedProperty("Extension", typedefof<seq<_>>.MakeGenericType(intension),
-                                    IsStatic=true, GetterCode = fun _ -> <@@ [] @@>)
+                                    IsStatic=true, GetterCode = fun _ ->
+                                    <@@
+                                        printfn "%A" tmp
+                                        []
+                                    @@>)
                 [intension :> MemberInfo; extension :> MemberInfo]
             )
             // Add property navigation and restriction
-            t.AddMembersDelayed (fun _ -> makePropertyNavigation typeName)
-            t.AddMembersDelayed (fun _ -> makePropertyRestriction typeName)
+            t.AddMembersDelayed (fun _ -> makePropertyNavigation freeVariable restrictions typeName)
+            t.AddMembersDelayed (fun _ -> makePropertyRestriction freeVariable restrictions typeForPropertyRestriction)
             t
 
         and addToContainer = fun typeName ->
             if Utils.typeCache.Contains typeName |> not then
-                container.AddMember (makeType typeName)
+                container.AddMember (makeType "?y" ["?x", "a", typeName] typeName typeName)
                 Utils.addType typeName
             
-        let buildTypes (typeName : string) (startingStuff :string) = 
-
-            let t = ProvidedTypeDefinition(className = (this.niceName typeName), baseType = None)
+        let buildTypes (typeName : string) (startingStuff : string) = 
+            let t = ProvidedTypeDefinition(className = (niceName typeName), baseType = None)
             t.AddMemberDelayed (fun _ ->
-                container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map makeType)
+                container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName))
                 container.AddMembersDelayed (fun _ ->
-                    Utils.typeCache |> Seq.map makeType |> Seq.toList
-                    )
+                    Utils.typeCache |> Seq.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName) |> Seq.toList
+                )
                 container)
             provTy.AddMember t
             t
@@ -122,7 +175,6 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             let dummy = DummySchema()
             this.schema <- dummy :> SchemaProvider
             this.startingPoint <- dummy :> StartingPointProvider
-            this.niceName <- id
 
         do provTy.DefineStaticParameters(parameters, fun typeName args -> buildTypes typeName (args.[0] :?> string))
         do this.AddNamespace(ns, [ provTy ])

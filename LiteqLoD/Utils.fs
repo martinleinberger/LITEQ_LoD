@@ -28,3 +28,13 @@ let addType (line:string) =
         typeCache.Add line |> ignore
         use wr = new System.IO.StreamWriter("./cache.txt",true)
         wr.WriteLine(line)
+
+let memoize f = 
+    let dict = new System.Collections.Generic.Dictionary<_,_>()
+    fun n -> 
+        match dict.TryGetValue n with
+        | (true,v) -> v
+        | _ -> 
+            let temp = f n
+            dict.Add (n,temp)
+            temp

@@ -1,10 +1,11 @@
 ﻿module Schema
 
 type Uri = string
+type Property = Uri
+type Type = Uri
+type Triple = Uri*Uri*Uri
 type TypeCluster = Uri
 type EquivalenceCluster = Uri
-type Type = Uri
-type Property = Uri
 
 
 let db = [
@@ -37,7 +38,6 @@ let db = [
     "pc3", "hasRange", "tc4";
     "pc3", "hasProp", "hatHaustier";
     
-
     "ds1", "context", "www.drunkenbasketballplayers.com";
     "ds1", "hasInstance", "player1";
     "ds1", "hasInstance", "player2"
