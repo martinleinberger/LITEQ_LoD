@@ -6,8 +6,6 @@ open System.Reflection
 
 open Schema
 open Utils
-open NoGoodNameYetLayer
-
 
 
 [<TypeProvider>]
