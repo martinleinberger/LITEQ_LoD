@@ -83,51 +83,37 @@ type HTTPSchema() =
             let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=types&uri=" + escapeUri typecluster
             match (JsonValue.Load(uri).["response"]) with
             | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
-            | JsonValue.String errorMsg -> failwith ("GetAllTypesIn " +  typecluster + " failed with response " + errorMsg)
-            | _ -> failwith ("GetTypeClusterFor " + typecluster + " response was neither correct nor error message")
+            | JsonValue.String errorMsg -> raise (HTTPSchemaException("GetAllTypesIn " +  typecluster + " failed with response " + errorMsg))
+            | _ ->  raise (HTTPSchemaException("GetTypeClusterFor " + typecluster + " response was neither correct nor error message"))
 
         member __.GetTypeClustersFor ``type`` =
             let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tc&uri=" + escapeUri ``type``
             match (JsonValue.Load(uri).["response"]) with
             | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
-            | JsonValue.String errorMsg -> failwith ("GetTypeClustersFor " +  ``type`` + " failed with response " + errorMsg) 
-            | _ -> failwith ("GetTypeClusterFor " + ``type`` + " response was neither correct nor error message")
-
-
+            | JsonValue.String errorMsg ->  raise (HTTPSchemaException("GetTypeClustersFor " +  ``type`` + " failed with response " + errorMsg))
+            | _ ->  raise (HTTPSchemaException("GetTypeClusterFor " + ``type`` + " response was neither correct nor error message"))
 
         member __.GetAllEQCIn typecluster =
-            try  
-                let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=eqc&uri=" + escapeUri typecluster
-                let response = JsonValue.Load(uri).["response"]
-                if response.AsString() = "fail" then
-                    raise (HTTPSchemaException("GetAllEQCIn " + typecluster + " failed with response " + response.AsString()))
-                else
-                    [for item in response -> trimUri(item.AsString())]
-            with
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=eqc&uri=" + escapeUri typecluster
+            match JsonValue.Load(uri).["response"] with
+            | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
+            | JsonValue.String errorMsg ->  raise (HTTPSchemaException("GetAllEQCIn " + typecluster + " failed with response " + errorMsg))
             | _ ->  raise (HTTPSchemaException("GetAllEQCIn " + typecluster + " failed"))
 
         member __.GetPropertiesAndTypeClusterIn equivalenceClass =
-            try
-                let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=mappings&uri=" + escapeUri equivalenceClass
-                let response = JsonValue.Load(uri).["response"]
-                if response.AsString() = "fail" then
-                    raise (HTTPSchemaException("GetPropertiesAndTypeClusterIn " + equivalenceClass + " failed with response " + response.AsString()))
-                else
-                    Array.toList (response.AsArray()) |> List.map (fun x -> 
-                        Array.toList(x.[1].AsArray()) |> List.map (fun x -> trimUri(x.AsString())),
-                        Array.toList(x.[0].AsArray())|> List.map (fun x -> trimUri(x.AsString())))
-            with
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=mappings&uri=" + escapeUri equivalenceClass
+            match JsonValue.Load(uri).["response"] with
+            | JsonValue.Array response -> Array.toList (response) |> List.map (fun x -> 
+                Array.toList(x.[1].AsArray()) |> List.map (fun x -> trimUri(x.AsString())),
+                Array.toList(x.[0].AsArray())|> List.map (fun x -> trimUri(x.AsString())))
+            | JsonValue.String errorMsg -> raise (HTTPSchemaException("GetPropertiesAndTypeClusterIn " + equivalenceClass + " failed with response " + errorMsg))
             | _ -> raise (HTTPSchemaException("GetPropertiesAndTypeClusterIn " + equivalenceClass + " failed"))
              
         member __.GetAllInstancesIn equivalenceClass =
-            try
-                let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=entities&uri=" + escapeUri equivalenceClass
-                let response =  JsonValue.Load(uri)
-                if response.AsString() = "fail" then
-                    raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed with response " + response.AsString()))
-                else
-                    [for item in response -> trimUri(item.AsString())]
-            with
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=entities&uri=" + escapeUri equivalenceClass
+            match JsonValue.Load(uri) with
+            | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
+            | JsonValue.String errorMsg -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed with response " + errorMsg)) 
             | _ -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed"))
 
     interface StartingPointProvider with
