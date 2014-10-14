@@ -83,7 +83,7 @@ type HTTPSchema() =
             [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())]
 
         member __.GetTypeClustersFor ``type`` =
-            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tcs&uri=" + escapeUri ``type``
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tc&uri=" + escapeUri ``type``
             [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())]
 
         member __.GetAllEQCIn typecluster =
@@ -102,7 +102,6 @@ type HTTPSchema() =
 
     interface StartingPointProvider with
         member __.Get () = ["http://xmlns.com/foaf/0.1/Person"]
-
 
 type DummySchema() = 
     interface SchemaProvider with
