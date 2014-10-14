@@ -80,26 +80,19 @@ type HTTPSchema() =
             |> List.map ``object``
             
         member __.GetAllTypesIn typecluster =
-            try
-                let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=types&uri=" + escapeUri typecluster
-                let response = JsonValue.Load(uri).["response"]
-                if response.AsString()= "fail" then
-                    raise (HTTPSchemaException("GetAllTypesIn " +  typecluster + " failed with response " + response.AsString()))
-                else
-                    [for item in JsonValue.Load(uri).["response"] -> trimUri(item.AsString())]
-            with
-            | _ -> raise (HTTPSchemaException("GetAllTypesIn" + typecluster + " failed"))
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=types&uri=" + escapeUri typecluster
+            match (JsonValue.Load(uri).["response"]) with
+            | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
+            | JsonValue.String errorMsg -> failwith ("GetAllTypesIn " +  typecluster + " failed with response " + errorMsg)
+            | _ -> failwith ("GetTypeClusterFor " + typecluster + " response was neither correct nor error message")
 
         member __.GetTypeClustersFor ``type`` =
-            try
-                let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tc&uri=" + escapeUri ``type``
-                let response = JsonValue.Load(uri).["response"]
-                if response.AsString() = "fail" then
-                    raise (HTTPSchemaException("GetTypeClustersFor " +  ``type`` + " failed with response " + response.AsString()))
-                else
-                    [for item in response -> trimUri(item.AsString())]
-            with
-            | _ -> raise (HTTPSchemaException("GetTypeClustersFor " +  ``type`` + " failed"))
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=tc&uri=" + escapeUri ``type``
+            match (JsonValue.Load(uri).["response"]) with
+            | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
+            | JsonValue.String errorMsg -> failwith ("GetTypeClustersFor " +  ``type`` + " failed with response " + errorMsg) 
+            | _ -> failwith ("GetTypeClusterFor " + ``type`` + " response was neither correct nor error message")
+
 
 
         member __.GetAllEQCIn typecluster =

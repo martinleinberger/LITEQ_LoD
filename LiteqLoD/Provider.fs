@@ -87,6 +87,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                 t.AddMember t'
                 t.AddMember p
             )
+            t.AddMember (ProvidedConstructor(parameters=[], InvokeCode = fun _ -> <@@ new obj() @@>))
 
             t
 
@@ -170,9 +171,9 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
         let parameters = [ ProvidedStaticParameter("endpointUrl", typeof<string>) ]
         do
             // Set source of schematic data
-            let dummy = DummySchema()
-            this.schema <- dummy :> SchemaProvider
-            this.startingPoint <- dummy :> StartingPointProvider
+            let s = HTTPSchema()
+            this.schema <- s :> SchemaProvider
+            this.startingPoint <- s :> StartingPointProvider
 
         do provTy.DefineStaticParameters(parameters, fun typeName args -> buildTypes typeName (args.[0] :?> string))
         do this.AddNamespace(ns, [ provTy ])
