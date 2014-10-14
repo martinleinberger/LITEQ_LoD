@@ -11,12 +11,14 @@ let loadResource (uri : System.Uri) =
     UriLoader.Load(graph, uri)
     graph
 
-let schemaCache : ICache<SchemaProvider> = createInMemoryCache()
+let schemaCache : ICache<ISchemaProvider> = createInMemoryCache()
 
+[<StructuredFormatDisplay("{Uri}")>]
 type RdfResource(uri : System.Uri) = 
     class
         let graph = loadResource uri
 
+        member __.Uri = uri
         member __.Graph = graph
         member __.Item 
             with get (uri : System.Uri) = graph.GetTriplesWithPredicate uri |> Seq.map (fun x -> x.Object)
@@ -39,7 +41,7 @@ let gatherInstances (inIndex:string) (withType:string) (furtherRestrictions:(str
         match schemaCache.TryRetrieve inIndex with
         | Some schema -> schema
         | None -> 
-            let s = new HTTPSchema() :> SchemaProvider
+            let s = new HTTPSchema() :> ISchemaProvider
             schemaCache.Set (inIndex, s)
             s
 

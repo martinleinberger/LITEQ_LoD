@@ -57,7 +57,7 @@ let trimUris (x:seq<string>) :seq<string> = x |> Seq.map (fun x -> trimUri x)
 let escapeUri (x:string) :string = System.Uri.EscapeDataString x
 let escapeUris (x:seq<string>) :seq<string> = x |> Seq.map (fun x -> escapeUri x)
 
-type SchemaProvider = 
+type ISchemaProvider = 
     abstract member AllRdfTypes : Type list
     abstract member GetAllTypesIn : TypeCluster -> Type list
     abstract member GetTypeClustersFor : Type -> TypeCluster list
@@ -69,11 +69,11 @@ type SchemaProvider =
     abstract member GetAllInstancesIn : EquivalenceCluster -> Uri list
 
 
-type StartingPointProvider = 
+type IStartingPointProvider = 
     abstract member Get : unit -> Type list
 
 type HTTPSchema() =
-    interface SchemaProvider with
+    interface ISchemaProvider with
         member __.AllRdfTypes = 
             db
             |> List.filter(fun (s,p,o) -> p = "containsClass")
@@ -116,11 +116,11 @@ type HTTPSchema() =
             | Some (JsonValue.String errorMsg) -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed with response " + errorMsg)) 
             | _ -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed"))
 
-    interface StartingPointProvider with
+    interface IStartingPointProvider with
         member __.Get () = ["http://xmlns.com/foaf/0.1/Person"]
 
 type DummySchema() = 
-    interface SchemaProvider with
+    interface ISchemaProvider with
             member __.AllRdfTypes =
                 db
                 |> List.filter(fun (s,p,o) -> p = "containsClass")
@@ -172,5 +172,5 @@ type DummySchema() =
                 |> List.map ``object``
  
 
-    interface StartingPointProvider with
+    interface IStartingPointProvider with
         member __.Get () = ["Person"]

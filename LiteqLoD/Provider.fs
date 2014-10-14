@@ -16,8 +16,8 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
         let asm = Assembly.GetExecutingAssembly()
         let provTy = ProvidedTypeDefinition(asm, ns, "LoD", Some typeof<obj>)
         
-        [<DefaultValue>] val mutable private schema : SchemaProvider
-        [<DefaultValue>] val mutable private startingPoint : StartingPointProvider 
+        [<DefaultValue>] val mutable private schema : ISchemaProvider
+        [<DefaultValue>] val mutable private startingPoint : IStartingPointProvider 
         let mutable niceName : Uri -> string = id
 
         // Will be used in future updates
@@ -175,8 +175,8 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
         do
             // Set source of schematic data
             let s = HTTPSchema()
-            this.schema <- s :> SchemaProvider
-            this.startingPoint <- s :> StartingPointProvider
+            this.schema <- s :> ISchemaProvider
+            this.startingPoint <- s :> IStartingPointProvider
 
         do provTy.DefineStaticParameters(parameters, fun typeName args -> buildTypes typeName (args.[0] :?> string))
         do this.AddNamespace(ns, [ provTy ])
