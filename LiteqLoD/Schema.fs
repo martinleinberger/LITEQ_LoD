@@ -110,10 +110,10 @@ type HTTPSchema() =
             | _ -> raise (HTTPSchemaException("GetPropertiesAndTypeClusterIn " + equivalenceClass + " failed"))
              
         member __.GetAllInstancesIn equivalenceClass =
-            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=entities&uri=" + escapeUri equivalenceClass
-            match JsonValue.Load(uri) with
-            | JsonValue.Array response -> [for item in response -> trimUri(item.AsString())]
-            | JsonValue.String errorMsg -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed with response " + errorMsg)) 
+            let uri = "http://webschemex2.west.uni-koblenz.de/lookup?get=entities&uri=" + escapeUri equivalenceClass 
+            match JsonValue.Load(uri).TryGetProperty("response") with
+            | Some (JsonValue.Array response) -> [for item in response -> trimUri(item.AsString())]
+            | Some (JsonValue.String errorMsg) -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed with response " + errorMsg)) 
             | _ -> raise (HTTPSchemaException("GetAllInstancesIn " + equivalenceClass + " failed"))
 
     interface StartingPointProvider with
@@ -140,13 +140,6 @@ type DummySchema() =
                 db
                 |> List.filter(fun (s,p,_) -> s = typeCluster && p = "hasEqc")
                 |> List.map ``object``
-
-            (*
-            member __.GetAllPropertiesIn equivalenceCluster = 
-                db
-                |> List.filter(fun (s,p,o) -> s = equivalenceCluster && p = "hasProp")
-                |> List.map third
-            *)
 
             member __.GetPropertiesAndTypeClusterIn equivalenceCluster = 
                 let propertyCluster =

@@ -56,7 +56,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             )
         )
 
-        // Building the intension is not yet fully implemented right now
+        // Building the intension is not yet convincingly implemented
         let rec makeIntension = fun restrictions typeName ->
             
             let predefinedProperties =
@@ -79,7 +79,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                 )
             let allProperties =
                 findPropertiesForType typeName 
-                |> Seq.filter(fun (p,tc) -> restrictions |> Seq.exists(fun (s,p',o) -> p' = p) |> not) 
+                |> Seq.filter(fun (p,tc) -> restrictions |> Seq.exists(fun (s, p',o) -> p' = p) |> not) 
                 |> Seq.map(fun (p,tc) -> ProvidedProperty(propertyName=p, propertyType=typeof<string>, GetterCode = fun args -> <@@ "" @@>))
                 |> Seq.toList
             let t = ProvidedTypeDefinition(className="Intension", baseType=Some typeof<obj>)
@@ -93,9 +93,10 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
 
             t
 
+        // A property navigation basically erases all previously selected restrictions...
         and makePropertyNavigation = fun freeVariable restrictions ``type`` ->
             findPropertiesForType ``type``
-            |> List.map(fun (property,typeClusters) -> 
+            |> List.map(fun (property, typeClusters) -> 
                 let t = ProvidedTypeDefinition("-"+(niceName property)+"->", None)
                 t.AddMembersDelayed (fun _ ->
                     typeClusters
@@ -104,10 +105,6 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                     |> Set.ofList
                     |> Set.toList
                     |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName)
-
-                    
-                    //|> List.map (makeTypesOutOfCluster freeVariable restrictions)
-                    //|> List.concat
                 )
                 t
             )
@@ -118,10 +115,6 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                 let t = ProvidedTypeDefinition("<-"+(niceName property)+"-", None)
 
                 t.AddMembersDelayed (fun _ ->
-//                    typeClusters
-//                    // TODO: Really no need to remove duplicate types?
-//                    |> List.map (makeTypesOutOfCluster freeVariable restrictions)
-//                    |> List.concat
                     let restrictions' = ("?x", property, freeVariable) :: restrictions
 
                     typeClusters
@@ -144,8 +137,16 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                 let extension = ProvidedProperty("Extension", typedefof<seq<_>>.MakeGenericType(intension),
                                     IsStatic=true, GetterCode = fun _ ->
                                     <@@
-                                        printfn "%A" tmp
-                                        []
+                                        let patterns =
+                                            tmp.Split([|" . \n"|], System.StringSplitOptions.None)
+                                            |> List.ofArray
+                                            |> List.rev
+                                        let typeName = patterns.[0].Split([|", "|], System.StringSplitOptions.None).[2]
+                                        let remainingRestrictions = patterns |> List.tail |> List.map(fun s ->
+                                            let x = s.Split([|", "|], System.StringSplitOptions.None)
+                                            x.[0], x.[1], x.[2]
+                                        )
+                                        RdfResource.gatherInstances "schemex" typeName remainingRestrictions
                                     @@>)
                 [intension :> MemberInfo; extension :> MemberInfo]
             )
