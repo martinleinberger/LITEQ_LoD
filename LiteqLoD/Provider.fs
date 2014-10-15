@@ -58,7 +58,6 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
 
         // Building the intension is not yet convincingly implemented
         let rec makeIntension = fun restrictions typeName ->
-            
             let predefinedProperties =
                 restrictions
                 |> Seq.toList
@@ -82,7 +81,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                 |> Seq.filter(fun (p,tc) -> restrictions |> Seq.exists(fun (s, p',o) -> p' = p) |> not) 
                 |> Seq.map(fun (p,tc) -> ProvidedProperty(propertyName=p, propertyType=typeof<string>, GetterCode = fun args -> <@@ "" @@>))
                 |> Seq.toList
-            let t = ProvidedTypeDefinition(className="Intension", baseType=Some typeof<obj>)
+            let t = ProvidedTypeDefinition(className="Intension", baseType=Some typeof<RdfResource.RdfResource>)
             t.AddMembers allProperties
             predefinedProperties
             |> Seq.iter(fun (t',p) ->
