@@ -103,7 +103,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                     |> List.concat
                     |> Set.ofList
                     |> Set.toList
-                    |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName)
+                    |> List.map (fun typeName -> makeAndAdd "?y" ["?x", "a", typeName] typeName typeName)
                 )
                 t
             )
@@ -121,7 +121,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
                     |> List.concat
                     |> Set.ofList
                     |> Set.toList
-                    |> List.map (fun typeName -> makeType (freeVariable+"y") ((freeVariable, "a", typeName) :: restrictions') ``type`` typeName)
+                    |> List.map (fun typeName -> makeAndAdd (freeVariable+"y") ((freeVariable, "a", typeName) :: restrictions') ``type`` typeName)
 
                 )
                 t
@@ -154,19 +154,22 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             t.AddMembersDelayed (fun _ -> makePropertyRestriction freeVariable restrictions typeForPropertyRestriction)
             t
 
-        and addToContainer = fun typeName ->
+        and makeAndAdd = fun freeVariable restrictions typeForPropertyRestriction typeName ->
             if Utils.typeCache.Contains typeName |> not then
                 container.AddMember (makeType "?y" ["?x", "a", typeName] typeName typeName)
                 Utils.addType typeName
+            makeType freeVariable restrictions typeForPropertyRestriction typeName
             
         let buildTypes (typeName : string) (startingStuff : string) = 
             let t = ProvidedTypeDefinition(className = (niceName typeName), baseType = None)
             t.AddMemberDelayed (fun _ ->
-                container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName))
-                container.AddMembersDelayed (fun _ ->
-                    Utils.typeCache |> Seq.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName) |> Seq.toList
-                )
+                if System.IO.File.Exists("./cache.txt") |> not
+                    then container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName))
+                    else container.AddMembersDelayed (fun _ ->
+                            Utils.typeCache |> Seq.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName) |> Seq.toList
+                        )
                 container)
+            
             provTy.AddMember t
             t
         

@@ -54,17 +54,19 @@ let gatherInstances (inIndex:string) (withType:string) (furtherRestrictions:(str
             schemaCache.Set (inIndex, s)
             s
 
-    schema.GetTypeClustersFor withType 
-    |> PSeq.map (schema.GetAllEQCIn)
-    |> Seq.concat
-    |> PSeq.map (schema.GetAllInstancesIn)
-    |> Seq.concat
-    |> PSeq.distinct
-    |> PSeq.map (fun uri -> RdfResource (System.Uri uri))
-    |> PSeq.fold(fun accumulator resource ->
-        try
-            match (furtherRestrictions' |> Seq.forall (filterPropertyType resource)) with
-            | true -> resource :: accumulator
-            | false -> accumulator
-        with
-        | _ -> accumulator) List.empty<RdfResource>
+    let r =
+        schema.GetTypeClustersFor withType 
+        |> PSeq.map (schema.GetAllEQCIn)
+        |> Seq.concat
+        |> PSeq.map (schema.GetAllInstancesIn)
+        |> Seq.concat
+        |> PSeq.distinct
+        |> PSeq.map (fun uri -> RdfResource (System.Uri uri))
+        |> PSeq.fold(fun accumulator resource ->
+            try
+                match (furtherRestrictions' |> Seq.forall (filterPropertyType resource)) with
+                | true -> resource :: accumulator
+                | false -> accumulator
+            with
+            | _ -> accumulator) List.empty<RdfResource>
+    r
