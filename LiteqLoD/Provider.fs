@@ -5,6 +5,7 @@ open ProviderImplementation.ProvidedTypes
 open System.Reflection
 
 open Schema
+open RdfResource
 open Utils
 
 
@@ -133,7 +134,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             t.AddMembersDelayed (fun _ ->
                 let tmp = restrictions |> List.map(fun (s, p, o) -> s+", "+p+", "+o) |> String.concat " . \n"
                 let intension = makeIntension restrictions typeForPropertyRestriction 
-                let extension = ProvidedProperty("Extension", typedefof<seq<_>>.MakeGenericType(intension),
+                let extension = ProvidedProperty("Extension", typedefof<LodList<_>>.MakeGenericType(intension),
                                     IsStatic=true, GetterCode = fun _ ->
                                     <@@
                                         let patterns =
