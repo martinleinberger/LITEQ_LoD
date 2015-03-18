@@ -183,6 +183,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
 
         do provTy.DefineStaticParameters(parameters, fun typeName args -> buildTypes typeName (args.[0] :?> string))
         do this.AddNamespace(ns, [ provTy ])
+
     end
 
 [<TypeProviderAssembly>]
