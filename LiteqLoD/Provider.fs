@@ -165,7 +165,7 @@ type RDFTypeProvider(config : TypeProviderConfig) as this =
             let t = ProvidedTypeDefinition(className = (niceName typeName), baseType = None)
             t.AddMemberDelayed (fun _ ->
                 if System.IO.File.Exists("./cache.txt") |> not
-                    then container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName))
+                    then container.AddMembersDelayed (fun _ -> this.startingPoint.Get() |> List.map (fun typeName -> makeAndAdd "?y" ["?x", "a", typeName] typeName typeName))
                     else container.AddMembersDelayed (fun _ ->
                             Utils.typeCache |> Seq.map (fun typeName -> makeType "?y" ["?x", "a", typeName] typeName typeName) |> Seq.toList
                         )
